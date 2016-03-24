@@ -43,7 +43,7 @@ class Hook
      * @param boolean $recursive 是否递归合并
      * @return void
      */
-    public static function import($tags, $recursive = true)
+    public static function import(array $tags, $recursive = true)
     {
         if (!$recursive) {
             // 覆盖导入
@@ -101,7 +101,7 @@ class Hook
 
                 if (APP_DEBUG) {
                     Debug::remark('behavior_end', 'time');
-                    Log::record('[ BEHAVIOR ] Run ' . $name . ' @' . $tag . ' [ RunTime:' . Debug::getRangeTime('behavior_start', 'behavior_end') . 's ]', 'log');
+                    Log::record('[ BEHAVIOR ] Run ' . ($name instanceof \Closure ? 'Closure' : $name) . ' @' . $tag . ' [ RunTime:' . Debug::getRangeTime('behavior_start', 'behavior_end') . 's ]', 'info');
                 }
                 if (false === $result) {
                     // 如果返回false 则中断行为执行
@@ -117,7 +117,7 @@ class Hook
      * @param string $class 行为类名称
      * @param string $tag 方法名（标签名）
      * @param Mixed $params 传人的参数
-     * @return void
+     * @return mixed
      */
     public static function exec($class, $tag = '', &$params = null)
     {

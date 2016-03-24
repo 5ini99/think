@@ -16,17 +16,19 @@ class Cookie
 
     protected static $config = [
         // cookie 名称前缀
-        'prefix'   => '',
+        'prefix'    => '',
         // cookie 保存时间
-        'expire'   => 0,
+        'expire'    => 0,
         // cookie 保存路径
-        'path'     => '/',
+        'path'      => '/',
         // cookie 有效域名
-        'domain'   => '',
+        'domain'    => '',
         //  cookie 启用安全传输
-        'secure'   => false,
+        'secure'    => false,
         // httponly设置
-        'httponly' => '',
+        'httponly'  => '',
+        // 是否使用 setcookie
+        'setcookie' => true,
     ];
 
     /**
@@ -60,7 +62,7 @@ class Cookie
      *
      * @param string $name  cookie名称
      * @param mixed  $value cookie值
-     * @param null   $option
+     * @param mixed  $option 可选参数 可能会是 null|integer|string
      *
      * @return mixed
      * @internal param mixed $options cookie参数
@@ -74,7 +76,6 @@ class Cookie
             } elseif (is_string($option)) {
                 parse_str($option, $option);
             }
-
             $config = array_merge(self::$config, array_change_key_case($option));
         } else {
             $config = self::$config;
@@ -86,19 +87,21 @@ class Cookie
             $value = 'think:' . json_encode($value);
         }
         $expire = !empty($config['expire']) ? time() + intval($config['expire']) : 0;
-        setcookie($name, $value, $expire, $config['path'], $config['domain'], $config['secure'], $config['httponly']);
+        if ($config['setcookie']) {
+            setcookie($name, $value, $expire, $config['path'], $config['domain'], $config['secure'], $config['httponly']);
+        }
         $_COOKIE[$name] = $value;
     }
 
     /**
      * Cookie获取
      * @param string $name cookie名称
-     * @param string $prefix cookie前缀
+     * @param string|null $prefix cookie前缀
      * @return mixed
      */
-    public static function get($name, $prefix = '')
+    public static function get($name, $prefix = null)
     {
-        $prefix = $prefix ? $prefix : self::$config['prefix'];
+        $prefix = !is_null($prefix) ? $prefix : self::$config['prefix'];
         $name   = $prefix . $name;
         if (isset($_COOKIE[$name])) {
             $value = $_COOKIE[$name];
@@ -116,25 +119,27 @@ class Cookie
     /**
      * Cookie删除
      * @param string $name cookie名称
-     * @param string $prefix cookie前缀
+     * @param string|null $prefix cookie前缀
      * @return mixed
      */
-    public static function delete($name, $prefix = '')
+    public static function delete($name, $prefix = null)
     {
         $config = self::$config;
-        $prefix = $prefix ? $prefix : $config['prefix'];
+        $prefix = !is_null($prefix) ? $prefix : $config['prefix'];
         $name   = $prefix . $name;
-        setcookie($name, '', time() - 3600, $config['path'], $config['domain'], $config['secure'], $config['httponly']);
+        if ($config['setcookie']) {
+            setcookie($name, '', time() - 3600, $config['path'], $config['domain'], $config['secure'], $config['httponly']);
+        }
         // 删除指定cookie
         unset($_COOKIE[$name]);
     }
 
     /**
      * Cookie清空
-     * @param string $prefix cookie前缀
+     * @param string|null $prefix cookie前缀
      * @return mixed
      */
-    public static function clear($prefix = '')
+    public static function clear($prefix = null)
     {
         // 清除指定前缀的所有cookie
         if (empty($_COOKIE)) {
@@ -143,17 +148,17 @@ class Cookie
 
         // 要删除的cookie前缀，不指定则删除config设置的指定前缀
         $config = self::$config;
-        $prefix = $prefix ? $prefix : $config['prefix'];
+        $prefix = !is_null($prefix) ? $prefix : $config['prefix'];
         if ($prefix) {
             // 如果前缀为空字符串将不作处理直接返回
             foreach ($_COOKIE as $key => $val) {
                 if (0 === strpos($key, $prefix)) {
-                    setcookie($key, '', time() - 3600, $config['path'], $config['domain'], $config['secure'], $config['httponly']);
+                    if ($config['setcookie']) {
+                        setcookie($key, '', time() - 3600, $config['path'], $config['domain'], $config['secure'], $config['httponly']);
+                    }
                     unset($_COOKIE[$key]);
                 }
             }
-        } else {
-            unset($_COOKIE);
         }
         return;
     }

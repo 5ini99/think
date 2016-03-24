@@ -20,7 +20,7 @@ class Sae
     ];
 
     // 实例化并传入参数
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         $this->config = array_merge($this->config, $config);
     }
@@ -29,9 +29,9 @@ class Sae
      * 日志写入接口
      * @access public
      * @param array $log 日志信息
-     * @return void
+     * @return bool
      */
-    public function save($log = [])
+    public function save(array $log = [])
     {
         static $is_debug = null;
         $now             = date($this->config['log_time_format']);
@@ -41,8 +41,9 @@ class Sae
         } else {
             $current_uri = "cmd:" . implode(' ', $_SERVER['argv']);
         }
-        $runtime    = number_format(microtime(true) - START_TIME, 6);
+        $runtime    = microtime(true) - START_TIME;
         $reqs       = number_format(1 / $runtime, 2);
+        $runtime    = number_format($runtime, 6);
         $time_str   = " [运行时间：{$runtime}s] [吞吐率：{$reqs}req/s]";
         $memory_use = number_format((memory_get_usage() - START_MEM) / 1024, 2);
         $memory_str = " [内存消耗：{$memory_use}kb]";
@@ -60,9 +61,9 @@ class Sae
 
         $logstr = "[{$now}] {$_SERVER['SERVER_ADDR']} {$_SERVER['REMOTE_ADDR']} {$_SERVER['REQUEST_URI']}\r\n{$info}\r\n";
         if (is_null($is_debug)) {
-            $appSettings=[];
-            preg_replace_callback('@(\w+)\=([^;]*)@', function($match)use(&$appSettings){
-                $appSettings[$match['1']]=$match['2'];
+            $appSettings = [];
+            preg_replace_callback('@(\w+)\=([^;]*)@', function ($match) use (&$appSettings) {
+                $appSettings[$match['1']] = $match['2'];
             }, $_SERVER['HTTP_APPCOOKIE']);
             $is_debug = in_array($_SERVER['HTTP_APPVERSION'], explode(',', $appSettings['debug'])) ? true : false;
         }
@@ -73,7 +74,7 @@ class Sae
         if ($is_debug) {
             sae_set_display_errors(true);
         }
-
+        return true;
     }
 
 }

@@ -34,10 +34,10 @@ class Socket
 
     /**
      * 架构函数
-     * @param array $options 缓存参数
+     * @param array $config 缓存参数
      * @access public
      */
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
         if (!empty($config)) {
             $this->config = array_merge($this->config, $config);
@@ -48,13 +48,20 @@ class Socket
         }
     }
 
-    public function save($logs = [])
+    /**
+     * 日志写入接口
+     * @access public
+     * @param array $logs 日志信息
+     * @return bool
+     */
+    public function save(array $logs = [])
     {
         if (!$this->check()) {
-            return;
+            return false;
         }
-        $runtime    = number_format(microtime(true) - START_TIME, 6);
+        $runtime    = microtime(true) - START_TIME;
         $reqs       = number_format(1 / $runtime, 2);
+        $runtime    = number_format($runtime, 6);
         $time_str   = " [运行时间：{$runtime}s][吞吐率：{$reqs}req/s]";
         $memory_use = number_format((memory_get_usage() - START_MEM) / 1024, 2);
         $memory_str = " [内存消耗：{$memory_use}kb]";
@@ -94,7 +101,7 @@ class Socket
         ];
 
         foreach ($logs as &$log) {
-            if (in_array($log['type'], ['sql', 'notic', 'debug', 'info'])) {
+            if (in_array($log['type'], ['sql', 'notice', 'debug', 'info'])) {
                 $log['type'] = 'log';
             }
         }
@@ -112,7 +119,7 @@ class Socket
         } else {
             $this->sendToClient($tabid, $client_id, $logs, '');
         }
-
+        return true;
     }
 
     /**
@@ -211,8 +218,7 @@ class Socket
             "Content-Type: application/json;charset=UTF-8",
         ];
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers); //设置header
-        $txt = curl_exec($ch);
-        return true;
+        return curl_exec($ch);
     }
 
 }

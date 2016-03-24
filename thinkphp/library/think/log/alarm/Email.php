@@ -29,12 +29,12 @@ class Email
     /**
      * 通知发送接口
      * @access public
-     * @param string $log 日志信息
-     * @return void
+     * @param string $msg 日志信息
+     * @return bool
      */
     public function send($msg = '')
     {
-        error_log($msg, 1, $this->config['address']);
+        return error_log($msg, 1, $this->config['address']);
     }
 
 }

@@ -77,7 +77,7 @@ class Pgsql extends Driver
     /**
      * limit分析
      * @access protected
-     * @param mixed $lmit
+     * @param mixed $limit
      * @return string
      */
     public function parseLimit($limit)
@@ -119,5 +119,16 @@ class Pgsql extends Driver
     protected function parseRand()
     {
         return 'RANDOM()';
+    }
+
+    /**
+     * SQL性能分析
+     * @access protected
+     * @param string $sql
+     * @return array
+     */
+    protected function getExplain($sql)
+    {
+
     }
 }

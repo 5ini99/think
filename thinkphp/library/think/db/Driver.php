@@ -15,7 +15,9 @@ use PDO;
 use think\Config;
 use think\Db;
 use think\Debug;
-use think\Exception;
+use think\exception\DbBindParamException;
+use think\exception\DbException;
+use think\exception\PDOException;
 use think\Log;
 
 abstract class Driver
@@ -60,8 +62,6 @@ abstract class Driver
         'charset'        => 'utf8',
         // 数据库表前缀
         'prefix'         => '',
-        // 数据库调试模式
-        'debug'          => false,
         // 数据库部署方式:0 集中式(单一服务器),1 分布式(主从服务器)
         'deploy'         => 0,
         // 数据库读写是否分离 主从式有效
@@ -108,6 +108,8 @@ abstract class Driver
     /**
      * 连接数据库方法
      * @access public
+     * @return resource
+     * @throws \think\Exception
      */
     public function connect($config = '', $linkNum = 0, $autoConnection = false)
     {
@@ -128,7 +130,7 @@ abstract class Driver
                     Log::record($e->getMessage(), 'error');
                     return $this->connect($autoConnection, $linkNum);
                 } else {
-                    throw new Exception($e->getMessage());
+                    throw new PDOException($e, $this->config, $this->queryStr);
                 }
             }
         }
@@ -160,7 +162,8 @@ abstract class Driver
      * @param array $bind 参数绑定
      * @param boolean $fetch  不执行只是获取SQL
      * @param boolean $master  是否在主服务器读操作
-     * @return mixed
+     * @return array|bool|string
+     * @throws \think\Exception
      */
     public function query($sql, $bind = [], $fetch = false, $master = false)
     {
@@ -194,7 +197,7 @@ abstract class Driver
             $this->debug(false);
             return $this->getResult();
         } catch (\PDOException $e) {
-            throw new Exception($this->getError());
+            throw new PDOException($e, $this->config, $this->queryStr);
         }
     }
 
@@ -205,6 +208,7 @@ abstract class Driver
      * @param array $bind 参数绑定
      * @param boolean $fetch  不执行只是获取SQL
      * @return integer
+     * @throws \think\Exception
      */
     public function execute($sql, $bind = [], $fetch = false)
     {
@@ -243,7 +247,7 @@ abstract class Driver
             }
             return $this->numRows;
         } catch (\PDOException $e) {
-            throw new Exception($this->getError());
+            throw new PDOException($e, $this->config, $this->queryStr);
         }
     }
 
@@ -262,7 +266,7 @@ abstract class Driver
                 // 判断占位符
                 $sql = is_numeric($key) ?
                 substr_replace($sql, $val, strpos($sql, '?'), 1) :
-                str_replace(':' . $key, $val, $sql);
+                str_replace(':' . $key . ' ', $val . ' ', $sql . ' ');
             }
         }
         return $sql;
@@ -275,6 +279,7 @@ abstract class Driver
      * @access public
      * @param array $bind 要绑定的参数列表
      * @return void
+     * @throws \think\Exception
      */
     protected function bindValue(array $bind = [])
     {
@@ -287,7 +292,12 @@ abstract class Driver
                 $result = $this->PDOStatement->bindValue($param, $val);
             }
             if (!$result) {
-                throw new Exception('bind param error : [ ' . $param . '=>' . $val . ' ]');
+                throw new DbBindParamException(
+                    "Error occurred  when binding parameters '{$param}'",
+                    $this->config,
+                    $this->queryStr,
+                    $bind
+                );
             }
         }
     }
@@ -295,7 +305,7 @@ abstract class Driver
     /**
      * 启动事务
      * @access public
-     * @return void
+     * @return void|false
      */
     public function startTrans()
     {
@@ -315,16 +325,17 @@ abstract class Driver
     /**
      * 用于非自动提交状态下面的查询提交
      * @access public
-     * @return boolen
+     * @return boolean
+     * @throws \think\Exception
      */
     public function commit()
     {
         if ($this->transTimes > 0) {
             try {
-                $result           = $this->linkID->commit();
+                $this->linkID->commit();
                 $this->transTimes = 0;
             } catch (\PDOException $e) {
-                throw new Exception($e->getMessage());
+                throw new PDOException($e, $this->config, $this->queryStr);
             }
         }
         return true;
@@ -333,16 +344,17 @@ abstract class Driver
     /**
      * 事务回滚
      * @access public
-     * @return boolen
+     * @return boolean
+     * @throws \think\Exception
      */
     public function rollback()
     {
         if ($this->transTimes > 0) {
             try {
-                $result           = $this->linkID->rollback();
+                $this->linkID->rollback();
                 $this->transTimes = 0;
             } catch (\PDOException $e) {
-                throw new Exception($e->getMessage());
+                throw new PDOException($e, $this->config, $this->queryStr);
             }
         }
         return true;
@@ -394,6 +406,7 @@ abstract class Driver
     /**
      * 设置锁机制
      * @access protected
+     * @param bool $lock
      * @return string
      */
     protected function parseLock($lock = false)
@@ -649,13 +662,13 @@ abstract class Driver
                     $data = is_string($val[1]) ? explode(',', $val[1]) : $val[1];
                     $whereStr .= $key . ' ' . $this->exp[$exp] . ' ' . $this->parseValue($data[0]) . ' AND ' . $this->parseValue($data[1]);
                 } else {
-                    throw new Exception('where express error:' . $val[0]);
+                    throw new DbException("The WHERE express error: {$val[0]}", $this->config, '', 10503);
                 }
             } else {
                 $count = count($val);
                 $rule  = isset($val[$count - 1]) ? (is_array($val[$count - 1]) ? strtoupper($val[$count - 1][0]) : strtoupper($val[$count - 1])) : '';
                 if (in_array($rule, ['AND', 'OR', 'XOR'])) {
-                    $count = $count - 1;
+                    --$count;
                 } else {
                     $rule = 'AND';
                 }
@@ -912,6 +925,51 @@ abstract class Driver
     }
 
     /**
+     * 批量更新某字段
+     * @access public
+     * @param mixed $field 字段名
+     * @param mixed $pk 主键名
+     * @param mixed $dataSet 数据集
+     * @param mixed $operator 运算符
+     * @param array $options 参数表达式
+     **/
+    public function updateFieldAll($field, $pk, $dataSet, $operator = '=', $options = [])
+    {
+        $values     = [];
+        $this->bind = array_merge($this->bind, !empty($options['bind']) ? $options['bind'] : []);
+        $field      = $this->parseKey($field);
+        $pk         = $this->parseKey($pk);
+        if (in_array($operator, ['+', '-'])) {
+            $operator = '= ' . $field . $operator;
+        }
+
+        $value = '';
+        foreach ($dataSet as $key => $val) {
+            if (is_array($val) && 'exp' == $val[0]) {
+                $value = $val[1];
+            } elseif (is_null($val)) {
+                $value = 'NULL';
+            } elseif (is_scalar($val)) {
+                if (0 === strpos($val, ':') && isset($this->bind[substr($val, 1)])) {
+                    $value = $val;
+                } else {
+                    $name  = count($this->bind);
+                    $value = ':' . $_SERVER['REQUEST_TIME'] . '_' . $name;
+                    $this->bindParam($_SERVER['REQUEST_TIME'] . '_' . $name, $val);
+                }
+            }
+            //没使用过非数字主键,怎么处理比较合适?
+            $values[] = " WHEN " . $key . " THEN " . $value;
+        }
+
+        $sql = 'UPDATE ' . $this->parseTable($options['table']) . ' SET ' . $field . $operator . ' CASE ' . $pk . implode(' ', $values) . ' END ';
+        //查询条件需和WHEN THEN对一致
+        $sql .= ' WHERE ' . $pk . ' in (' . implode(',', array_map([$this, 'parseValue'], array_keys($dataSet))) . ')';
+        $sql .= $this->parseComment(!empty($options['comment']) ? $options['comment'] : '');
+        return $this->execute($sql, $this->getBindParams(true), !empty($options['fetch_sql']) ? true : false);
+    }
+
+    /**
      * 批量插入记录
      * @access public
      * @param mixed $dataSet 数据集
@@ -957,7 +1015,7 @@ abstract class Driver
      * @access public
      * @param string $fields 要插入的数据表字段名
      * @param string $table 要插入的数据表名
-     * @param array $option  查询数据参数
+     * @param array $options  查询数据参数
      * @return false | integer
      */
     public function selectInsert($fields, $table, $options = [])
@@ -1101,7 +1159,7 @@ abstract class Driver
      */
     public function getLastSql($model = '')
     {
-        return $model ? $this->modelSql[$model] : $this->queryStr;
+        return ($model && isset($this->modelSql[$model])) ? $this->modelSql[$model] : $this->queryStr;
     }
 
     /**
@@ -1127,9 +1185,11 @@ abstract class Driver
         } else {
             $error = '';
         }
+
         if ('' != $this->queryStr) {
             $error .= "\n [ SQL语句 ] : " . $this->queryStr;
         }
+
         return $error;
     }
 
@@ -1174,12 +1234,8 @@ abstract class Driver
                 $log = $this->queryStr . ' [ RunTime:' . Debug::getRangeTime('queryStartTime', 'queryEndTime') . 's ]';
                 // SQL性能分析
                 if (0 === stripos(trim($this->queryStr), 'select')) {
-                    $pdo    = $this->linkID->query("EXPLAIN " . $this->queryStr);
-                    $result = $pdo->fetch(PDO::FETCH_ASSOC);
-                    if (strpos($result['extra'], 'filesort') || strpos($result['extra'], 'temporary')) {
-                        Log::record('SQL:' . $this->queryStr . '[' . $result['extra'] . ']', 'warn');
-                    }
-                    $log .= '[ EXPLAIN : ' . var_export($result, true) . ' ]';
+                    $result = $this->getExplain($this->queryStr);
+                    Log::record('[ EXPLAIN : ' . var_export($result, true) . ' ]', 'sql');
                 }
                 Log::record('[ SQL ] ' . $log, 'sql');
             }
@@ -1208,7 +1264,7 @@ abstract class Driver
      * 连接分布式服务器
      * @access protected
      * @param boolean $master 主服务器
-     * @return void
+     * @return resource
      */
     protected function multiConnect($master = false)
     {

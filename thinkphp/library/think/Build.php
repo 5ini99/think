@@ -97,14 +97,15 @@ class Build
             } else {
                 // 生成相关MVC文件
                 foreach ($file as $val) {
-                    $filename  = $modulePath . $path . DS . $val . EXT;
+                    $filename  = $modulePath . $path . DS . $val . (CLASS_APPEND_SUFFIX ? ucfirst($path) : '') . EXT;
                     $namespace = APP_NAMESPACE . '\\' . ($module ? $module . '\\' : '') . $path;
+                    $class     = $val . (CLASS_APPEND_SUFFIX ? ucfirst($path) : '');
                     switch ($path) {
                         case CONTROLLER_LAYER:    // 控制器
-                            $content = "<?php\nnamespace {$namespace};\n\nclass {$val} {\n\n}";
+                            $content = "<?php\nnamespace {$namespace};\n\nclass {$class}\n{\n\n}";
                             break;
                         case MODEL_LAYER:    // 模型
-                            $content = "<?php\nnamespace {$namespace};\n\nclass {$val} extends \Think\Model{\n\n}";
+                            $content = "<?php\nnamespace {$namespace};\n\nuse think\Model;\n\nclass {$class} extends Model\n{\n\n}";
                             break;
                         case VIEW_LAYER:    // 视图
                             $filename = $modulePath . $path . DS . $val . '.html';
@@ -116,7 +117,7 @@ class Build
                             break;
                         default:
                             // 其他文件
-                            $content = "<?php\nnamespace {$namespace};\n\nclass {$val} {\n\n}";
+                            $content = "<?php\nnamespace {$namespace};\n\nclass {$class}\n{\n\n}";
                     }
 
                     if (!is_file($filename)) {
@@ -130,10 +131,10 @@ class Build
     // 创建欢迎页面
     protected static function buildHello($module)
     {
-        $filename = APP_PATH . ($module ? $module . DS : '') . CONTROLLER_LAYER . DS . Config::get('default_controller') . EXT;
+        $filename = APP_PATH . ($module ? $module . DS : '') . CONTROLLER_LAYER . DS . 'Index' . (CLASS_APPEND_SUFFIX ? ucfirst(CONTROLLER_LAYER) : '') . EXT;
         if (!is_file($filename)) {
             $content = file_get_contents(THINK_PATH . 'tpl' . DS . 'default_index.tpl');
-            $content = str_replace(['{$app}', '{$module}', '{layer}'], [APP_NAMESPACE, $module ? $module . '\\' : '', CONTROLLER_LAYER], $content);
+            $content = str_replace(['{$app}', '{$module}', '{layer}', '{$suffix}'], [APP_NAMESPACE, $module ? $module . '\\' : '', CONTROLLER_LAYER, CLASS_APPEND_SUFFIX ? ucfirst(CONTROLLER_LAYER) : ''], $content);
             if (!is_dir(dirname($filename))) {
                 mkdir(dirname($filename), 0777, true);
             }

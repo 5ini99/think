@@ -13,17 +13,17 @@ namespace think;
 
 class Log
 {
-    const LOG   = 'log';
-    const ERROR = 'error';
-    const INFO  = 'info';
-    const SQL   = 'sql';
-    const NOTIC = 'notic';
-    const ALERT = 'alert';
+    const LOG    = 'log';
+    const ERROR  = 'error';
+    const INFO   = 'info';
+    const SQL    = 'sql';
+    const NOTICE = 'notice';
+    const ALERT  = 'alert';
 
     // 日志信息
     protected static $log = [];
     // 日志类型
-    protected static $type = ['log', 'error', 'info', 'sql', 'notic', 'alert'];
+    protected static $type = ['log', 'error', 'info', 'sql', 'notice', 'alert'];
     // 日志写入驱动
     protected static $driver = null;
     // 通知发送驱动
@@ -37,7 +37,7 @@ class Log
         unset($config['type']);
         self::$driver = new $class($config);
         // 记录初始化信息
-        APP_DEBUG && Log::record('[ LOG ] INIT ' . $type . ':' . var_export($config, true), 'info');
+        APP_DEBUG && Log::record('[ LOG ] INIT ' . $type . ': ' . var_export($config, true), 'info');
     }
 
     // 通知初始化
@@ -48,7 +48,7 @@ class Log
         unset($config['type']);
         self::$alarm = new $class($config['alarm']);
         // 记录初始化信息
-        APP_DEBUG && Log::record('[ CACHE ] ALARM ' . $type . ':' . var_export($config, true), 'info');
+        APP_DEBUG && Log::record('[ CACHE ] ALARM ' . $type . ': ' . var_export($config, true), 'info');
     }
 
     /**
@@ -75,22 +75,31 @@ class Log
     }
 
     /**
-     * 保存调试信息
+     * 清空日志信息
      * @return void
+     */
+    public static function clear()
+    {
+        self::$log = [];
+    }
+
+    /**
+     * 保存调试信息
+     * @return bool
      */
     public static function save()
     {
         if (is_null(self::$driver)) {
             self::init(Config::get('log'));
         }
-        self::$driver->save(self::$log);
+        return self::$driver->save(self::$log);
     }
 
     /**
      * 实时写入日志信息 并支持行为
      * @param mixed $msg 调试信息
      * @param string $type 信息类型
-     * @return void
+     * @return bool
      */
     public static function write($msg, $type = 'log')
     {
@@ -106,11 +115,12 @@ class Log
             self::init(Config::get('log'));
         }
         // 写入日志
-        self::$driver->save($log);
+        return self::$driver->save($log);
     }
 
     /**
      * 发送预警通知
+     * @param mixed $msg 调试信息
      * @return void
      */
     public static function send($msg)

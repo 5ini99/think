@@ -16,21 +16,38 @@ namespace think;
 require __DIR__ . '/base.php';
 require CORE_PATH . 'Loader.php';
 
-// 注册自动加载
-Loader::register();
-
-// 注册错误和异常处理机制
-register_shutdown_function('think\Error::appShutdown');
-set_error_handler('think\Error::appError');
-set_exception_handler('think\Error::appException');
+// 加载环境变量配置文件
+if (is_file(ROOT_PATH . 'env' . EXT)) {
+    $env = include ROOT_PATH . 'env' . EXT;
+    foreach ($env as $key => $val) {
+        $name = ENV_PREFIX . $key;
+        putenv("$name=$val");
+    }
+}
+// 自动识别调试模式
+if (!defined('APP_DEBUG')) {
+    $debug = getenv(ENV_PREFIX . 'APP_DEBUG');
+    define('APP_DEBUG', $debug);
+}
 
 // 加载模式定义文件
 $mode = require MODE_PATH . APP_MODE . EXT;
 
+// 加载模式命名空间定义
+if (isset($mode['namespace'])) {
+    Loader::addNamespace($mode['namespace']);
+}
+
+// 注册自动加载
+Loader::register();
+
 // 加载模式别名定义
 if (isset($mode['alias'])) {
-    Loader::addMap(is_array($mode['alias']) ? $mode['alias'] : include $mode['alias']);
+    Loader::addMap($mode['alias']);
 }
+
+// 注册错误和异常处理机制
+Error::register();
 
 // 加载模式配置文件
 if (isset($mode['config'])) {
@@ -39,12 +56,7 @@ if (isset($mode['config'])) {
 
 // 加载模式行为定义
 if (APP_HOOK && isset($mode['tags'])) {
-    Hook::import(is_array($mode['tags']) ? $mode['tags'] : include $mode['tags']);
-}
-
-// 自动生成
-if (APP_AUTO_BUILD && is_file(APP_PATH . 'build.php')) {
-    Build::run(include APP_PATH . 'build.php');
+    Hook::import($mode['tags']);
 }
 
 // 是否自动运行

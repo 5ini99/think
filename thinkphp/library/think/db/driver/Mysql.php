@@ -12,6 +12,7 @@
 namespace think\db\driver;
 
 use think\db\Driver;
+use think\Log;
 
 /**
  * mysql数据库驱动
@@ -49,11 +50,15 @@ class Mysql extends Driver
     {
         $this->initConnect(true);
         list($tableName) = explode(' ', $tableName);
-        $sql             = 'SHOW COLUMNS FROM `' . $tableName . '`';
-        $result          = $this->query($sql);
-        $info            = [];
+        if (strpos($tableName, '.')) {
+            $tableName = str_replace('.', '`.`', $tableName);
+        }
+        $sql    = 'SHOW COLUMNS FROM `' . $tableName . '`';
+        $result = $this->query($sql);
+        $info   = [];
         if ($result) {
             foreach ($result as $key => $val) {
+                $val                 = array_change_key_case($val);
                 $info[$val['field']] = [
                     'name'    => $val['field'],
                     'type'    => $val['type'],
@@ -112,5 +117,24 @@ class Mysql extends Driver
     protected function parseRand()
     {
         return 'rand()';
+    }
+
+    /**
+     * SQL性能分析
+     * @access protected
+     * @param string $sql
+     * @return array
+     */
+    protected function getExplain($sql)
+    {
+        $pdo    = $this->linkID->query("EXPLAIN " . $sql);
+        $result = $pdo->fetch(\PDO::FETCH_ASSOC);
+        $result = array_change_key_case($result);
+        if (isset($result['extra'])) {
+            if (strpos($result['extra'], 'filesort') || strpos($result['extra'], 'temporary')) {
+                Log::record('SQL:' . $this->queryStr . '[' . $result['extra'] . ']', 'warn');
+            }
+        }
+        return $result;
     }
 }

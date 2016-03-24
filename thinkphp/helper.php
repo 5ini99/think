@@ -30,7 +30,7 @@ function C($name = '', $value = null, $range = '')
 }
 
 // 获取输入数据 支持默认值和过滤
-function I($key, $default = null, $filter = '', $merge = false, $data = [])
+function I($key, $default = null, $filter = '', $merge = false)
 {
     if (0 === strpos($key, '?')) {
         $key = substr($key, 1);
@@ -41,7 +41,7 @@ function I($key, $default = null, $filter = '', $merge = false, $data = [])
     if ($pos = strpos($key, '.')) {
         // 指定参数来源
         $method = substr($key, 0, $pos);
-        if (in_array($method, ['get', 'post', 'put', 'param', 'request', 'session', 'cookie', 'server', 'globals', 'env', 'path', 'file', 'data'])) {
+        if (in_array($method, ['get', 'post', 'put', 'delete', 'param', 'request', 'session', 'cookie', 'server', 'globals', 'env', 'path', 'file'])) {
             $key = substr($key, $pos + 1);
         } else {
             $method = 'param';
@@ -50,7 +50,7 @@ function I($key, $default = null, $filter = '', $merge = false, $data = [])
         // 默认为自动判断
         $method = 'param';
     }
-    return \think\Input::$method($has . $key, $default, $filter, $merge, $data);
+    return \think\Input::$method($has . $key, $default, $filter, $merge);
 }
 
 /**
@@ -72,11 +72,11 @@ function G($start, $end = '', $dec = 6)
 /**
  * 实例化一个没有模型文件的Model
  * @param string $name Model名称 支持指定基础模型 例如 MongoModel:User
- * @param string $tablePrefix 表前缀
+ * @param string|null $tablePrefix 表前缀 null表示自动获取配置
  * @param mixed $connection 数据库连接信息
  * @return \Think\Model
  */
-function M($name = '', $tablePrefix = '', $connection = '')
+function M($name = '', $tablePrefix = null, $connection = '')
 {
     return \think\Loader::table($name, ['prefix' => $tablePrefix, 'connection' => $connection]);
 }
@@ -192,15 +192,15 @@ function dump($var, $echo = true, $label = null)
  */
 function W($name, $data = [])
 {
-    return \think\Loader::action($name, $data, 'Widget');
+    return \think\Loader::action($name, $data, 'widget');
 }
 
-function U($url, $vars = '', $suffix = true, $domain = false)
+function U($url = '', $vars = '', $suffix = true, $domain = false)
 {
     return \think\Url::build($url, $vars, $suffix, $domain);
 }
 
-function session($name, $value = '')
+function session($name, $value = '', $prefix = null)
 {
     if (is_array($name)) {
         // 初始化
@@ -209,14 +209,14 @@ function session($name, $value = '')
         // 清除
         \think\Session::clear($value);
     } elseif ('' === $value) {
-        // 获取
-        return \think\Session::get($name);
+        // 判断或获取
+        return 0 === strpos($name, '?') ? \think\Session::has(substr($name, 1), $prefix) : \think\Session::get($name, $prefix);
     } elseif (is_null($value)) {
         // 删除session
-        return \think\Session::delete($name);
+        return \think\Session::delete($name, $prefix);
     } else {
         // 设置session
-        return \think\Session::set($name, $value);
+        return \think\Session::set($name, $value, $prefix);
     }
 }
 
@@ -294,7 +294,7 @@ function trace($log = '[think]', $level = 'log')
  * @param array $vars 模板变量
  * @return string
  */
-function V($template, $vars)
+function V($template = '', $vars = [])
 {
     return \think\View::instance(\think\Config::get())->fetch($template, $vars);
 }

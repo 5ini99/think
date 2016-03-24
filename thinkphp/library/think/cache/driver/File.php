@@ -26,7 +26,7 @@ class File
         'path_level'    => 1,
         'prefix'        => '',
         'length'        => 0,
-        'path'          => LOG_PATH,
+        'path'          => CACHE_PATH,
         'data_compress' => false,
     ];
 
@@ -48,7 +48,7 @@ class File
     /**
      * 初始化检查
      * @access private
-     * @return boolen
+     * @return boolean
      */
     private function init()
     {
@@ -104,7 +104,7 @@ class File
             $expire = (int) substr($content, 8, 12);
             if (0 != $expire && time() > filemtime($filename) + $expire) {
                 //缓存过期删除缓存文件
-                unlink($filename);
+                $this->unlink($filename);
                 return false;
             }
             $content = substr($content, 20, -3);
@@ -125,7 +125,7 @@ class File
      * @param string $name 缓存变量名
      * @param mixed $value  存储数据
      * @param int $expire  有效时间 0为永久
-     * @return boolen
+     * @return boolean
      */
     public function set($name, $value, $expire = null)
     {
@@ -157,7 +157,7 @@ class File
                     // 出列
                     $key = array_shift($queue);
                     // 删除缓存
-                    unlink($this->filename($key));
+                    $this->unlink($this->filename($key));
                 }
                 file_put_contents($queue_file, serialize($queue));
             }
@@ -172,32 +172,43 @@ class File
      * 删除缓存
      * @access public
      * @param string $name 缓存变量名
-     * @return boolen
+     * @return boolean
      */
     public function rm($name)
     {
-        return unlink($this->filename($name));
+        return $this->unlink($this->filename($name));
     }
 
     /**
      * 清除缓存
      * @access public
-     * @param string $name 缓存变量名
-     * @return boolen
+     * @return boolean
      */
     public function clear()
     {
-        $path = $this->options['temp'];
+        $path = $this->options['path'];
         if ($dir = opendir($path)) {
             while ($file = readdir($dir)) {
                 $check = is_dir($file);
                 if (!$check) {
-                    unlink($path . $file);
+                    $this->unlink($path . $file);
                 }
 
             }
             closedir($dir);
             return true;
         }
+    }
+
+    /**
+     * 判断文件是否存在后，删除
+     * @param $path
+     * @return bool
+     * @author byron sampson <xiaobo.sun@qq.com>
+     * @return boolean
+     */
+    private function unlink($path)
+    {
+        return is_file($path) && unlink($path);
     }
 }

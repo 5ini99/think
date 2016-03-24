@@ -14,9 +14,6 @@ namespace traits\model;
 trait Adv
 {
     protected $optimLock = 'lock_version';
-    //protected $serializeField = [];
-    //protected $readonlyField  = [];
-    //protected $partition      = [];
 
     /**
      * 利用__call方法重载 实现一些特殊的Model方法 （魔术方法）
@@ -35,18 +32,6 @@ trait Adv
         } else {
             return parent::__call($method, $args);
         }
-    }
-
-    /**
-     * 对保存到数据库的数据进行处理
-     * @access protected
-     * @param mixed $data 要操作的数据
-     * @return boolean
-     */
-    protected function _before_write(&$data)
-    {
-        // 检查序列化字段
-        $data = $this->serializeField($data);
     }
 
     // 查询成功后的回调方法
@@ -123,7 +108,7 @@ trait Adv
     /**
      * 检查乐观锁
      * @access protected
-     * @param inteter $id  当前主键
+     * @param integer $id  当前主键
      * @param array $data  当前数据
      * @return mixed
      */
@@ -217,6 +202,7 @@ trait Adv
      * @param array $data 数据
      * @param string $type 返回类型 默认为数组
      * @return mixed
+     * @throws \think\Exception
      */
     public function returnResult($data, $type = 'array')
     {
@@ -240,7 +226,7 @@ trait Adv
      * @access protected
      * @param array $resultSet 数据
      * @param string $type 返回类型 默认为数组
-     * @return void
+     * @return array
      */
     protected function returnResultSet(&$resultSet, $type = '')
     {
@@ -248,35 +234,6 @@ trait Adv
             $resultSet[$key] = $this->returnResult($data, $type);
         }
         return $resultSet;
-    }
-
-    /**
-     * 检查序列化数据字段
-     * @access protected
-     * @param array $data 数据
-     * @return array
-     */
-    protected function serializeField(&$data)
-    {
-        // 检查序列化字段
-        if (!empty($this->serializeField)) {
-            // 定义方式  $this->serializeField = ['ser'=>['name','email']];
-            foreach ($this->serializeField as $key => $val) {
-                if (empty($data[$key])) {
-                    $serialize = [];
-                    foreach ($val as $name) {
-                        if (isset($data[$name])) {
-                            $serialize[$name] = $data[$name];
-                            unset($data[$name]);
-                        }
-                    }
-                    if (!empty($serialize)) {
-                        $data[$key] = serialize($serialize);
-                    }
-                }
-            }
-        }
-        return $data;
     }
 
     // 检查返回数据的序列化字段

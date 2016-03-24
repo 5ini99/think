@@ -28,6 +28,7 @@ class Sae
         'timeout'    => false,
         'persistent' => false,
         'length'     => 0,
+        'prefix'     => '',
     ];
 
     /**
@@ -88,10 +89,8 @@ class Sae
 
     /**
      * 删除缓存
-     *
      * @param    string  $name 缓存变量名
      * @param bool|false $ttl
-     *
      * @return bool
      */
     public function rm($name, $ttl = false)

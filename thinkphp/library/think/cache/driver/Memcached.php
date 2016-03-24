@@ -23,6 +23,7 @@ class Memcached
         'expire'  => 0,
         'timeout' => 0, // 超时时间（单位：毫秒）
         'length'  => 0,
+        'prefix'  => '',
     ];
 
     /**
@@ -83,7 +84,8 @@ class Memcached
         if (is_null($expire)) {
             $expire = $this->options['expire'];
         }
-        $name = $this->options['prefix'] . $name;
+        $name   = $this->options['prefix'] . $name;
+        $expire = 0 == $expire ? 0 : time() + $expire;
         if ($this->handler->set($name, $value, $expire)) {
             if ($this->options['length'] > 0) {
                 // 记录缓存队列
@@ -110,10 +112,8 @@ class Memcached
 
     /**
      * 删除缓存
-     *
      * @param    string  $name 缓存变量名
      * @param bool|false $ttl
-     *
      * @return bool
      */
     public function rm($name, $ttl = false)

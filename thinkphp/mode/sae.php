@@ -13,8 +13,16 @@
  * ThinkPHP SAE应用模式定义文件
  */
 return [
+    // 命名空间
+    'namespace' => [
+        'think'       => LIB_PATH . 'think' . DS,
+        'behavior'    => LIB_PATH . 'behavior' . DS,
+        'traits'      => LIB_PATH . 'traits' . DS,
+        APP_NAMESPACE => APP_PATH,
+    ],
+
     // 配置文件
-    'config' => array_merge(include THINK_PATH . 'convention' . EXT, [
+    'config'    => array_merge(include THINK_PATH . 'convention' . EXT, [
         /* 数据库设置 */
         'database'         => [
             // 数据库类型
@@ -57,14 +65,11 @@ return [
             'expire' => 0,
         ],
         'file_upload_type' => 'Sae',
-        'template'         => [
-            'compile_type' => 'Sae',
-        ],
         'compile_type'     => 'Sae',
     ]),
 
     // 别名定义
-    'alias'  => [
+    'alias'     => [
         'think\App'                  => CORE_PATH . 'App' . EXT,
         'think\Build'                => CORE_PATH . 'Build' . EXT,
         'think\Cache'                => CORE_PATH . 'Cache' . EXT,

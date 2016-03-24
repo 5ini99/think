@@ -101,4 +101,15 @@ class Sqlite extends Driver
     {
         return 'RANDOM()';
     }
+
+    /**
+     * SQL性能分析
+     * @access protected
+     * @param string $sql
+     * @return array
+     */
+    protected function getExplain($sql)
+    {
+
+    }
 }

@@ -28,7 +28,7 @@ class Response
      * @param mixed $data 要返回的数据
      * @param String $type 返回数据格式
      * @param bool $return 是否返回数据
-     * @return void
+     * @return mixed
      */
     public static function send($data = '', $type = '', $return = false)
     {
@@ -95,7 +95,7 @@ class Response
      * 输出类型设置
      * @access public
      * @param string $type 输出内容的格式类型
-     * @return void
+     * @return mixed
      */
     public static function type($type = null)
     {
@@ -120,7 +120,7 @@ class Response
      * 输出是否exit设置
      * @access public
      * @param bool $exit 是否退出
-     * @return void
+     * @return mixed
      */
     public static function isExit($exit = null)
     {
@@ -135,9 +135,9 @@ class Response
      * @access public
      * @param mixed $data 要返回的数据
      * @param integer $code 返回的code
-     * @param mixed $msg 提示信息
+     * @param string $msg 提示信息
      * @param string $type 返回数据格式
-     * @return void
+     * @return mixed
      */
     public static function result($data, $code = 0, $msg = '', $type = '')
     {
@@ -159,11 +159,11 @@ class Response
      * @access public
      * @param mixed $msg 提示信息
      * @param mixed $data 返回的数据
-     * @param mixed $url 跳转的URL地址
-     * @param mixed $wait 跳转等待时间
-     * @return void
+     * @param string $url 跳转的URL地址
+     * @param integer $wait 跳转等待时间
+     * @return mixed
      */
-    public static function success($msg = '', $data = '', $url = '', $wait = 3)
+    public static function success($msg = '', $data = '', $url = null, $wait = 3)
     {
         $code = 1;
         if (is_numeric($msg)) {
@@ -174,14 +174,14 @@ class Response
             'code' => $code,
             'msg'  => $msg,
             'data' => $data,
-            'url'  => $url ?: $_SERVER["HTTP_REFERER"],
+            'url'  => is_null($url) && isset($_SERVER["HTTP_REFERER"]) ? $_SERVER["HTTP_REFERER"] : $url,
             'wait' => $wait,
         ];
 
         $type = IS_AJAX ? Config::get('default_ajax_return') : Config::get('default_return_type');
 
         if ('html' == $type) {
-            $result = \think\View::instance()->fetch(Config::get('dispatch_jump_tmpl'), $result);
+            $result = \think\View::instance()->fetch(Config::get('dispatch_success_tmpl'), $result);
         }
         self::type($type);
         return $result;
@@ -192,11 +192,11 @@ class Response
      * @access public
      * @param mixed $msg 提示信息
      * @param mixed $data 返回的数据
-     * @param mixed $url 跳转的URL地址
-     * @param mixed $wait 跳转等待时间
-     * @return void
+     * @param string $url 跳转的URL地址
+     * @param integer $wait 跳转等待时间
+     * @return mixed
      */
-    public static function error($msg = '', $data = '', $url = '', $wait = 3)
+    public static function error($msg = '', $data = '', $url = null, $wait = 3)
     {
         $code = 0;
         if (is_numeric($msg)) {
@@ -207,14 +207,14 @@ class Response
             'code' => $code,
             'msg'  => $msg,
             'data' => $data,
-            'url'  => $url ?: 'javascript:history.back(-1);',
+            'url'  => is_null($url) ? 'javascript:history.back(-1);' : $url,
             'wait' => $wait,
         ];
 
         $type = IS_AJAX ? Config::get('default_ajax_return') : Config::get('default_return_type');
 
         if ('html' == $type) {
-            $result = \think\View::instance()->fetch(Config::get('dispatch_jump_tmpl'), $result);
+            $result = \think\View::instance()->fetch(Config::get('dispatch_error_tmpl'), $result);
         }
         self::type($type);
         return $result;
@@ -222,7 +222,7 @@ class Response
 
     /**
      * URL重定向
-     * @access protected
+     * @access public
      * @param string $url 跳转的URL表达式
      * @param array|int $params 其它URL参数或http code
      * @return void
@@ -230,7 +230,7 @@ class Response
     public static function redirect($url, $params = [])
     {
         $http_response_code = 301;
-        if (in_array($params, [301, 302])) {
+        if (is_int($params) && in_array($params, [301, 302])) {
             $http_response_code = $params;
             $params             = [];
         }
@@ -240,7 +240,7 @@ class Response
 
     /**
      * 设置响应头
-     * @access protected
+     * @access public
      * @param string $name 参数名
      * @param string $value 参数值
      * @return void

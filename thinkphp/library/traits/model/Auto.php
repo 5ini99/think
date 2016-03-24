@@ -11,13 +11,11 @@
 
 namespace traits\model;
 
+use think\Config;
 use think\Lang;
 
 trait Auto
 {
-    //protected $validate = []; // 自动验证定义
-    //protected $auto     = []; // 自动完成定义
-
     /**
      * 创建数据对象 但不保存到数据库
      * @access public
@@ -38,9 +36,9 @@ trait Auto
             $this->error = Lang::get('_DATA_TYPE_INVALID_');
             return false;
         }
-
+        $pk = $this->getPk();
         // 状态
-        $type = $type ? $type : (!empty($data[$this->getPk()]) ? self::MODEL_UPDATE : self::MODEL_INSERT);
+        $type = $type ? $type : (is_string($pk) && !empty($data[$pk]) ? self::MODEL_UPDATE : self::MODEL_INSERT);
         $type = 1 << ($type - 1);
         // 字段列表
         $keys = array_keys($data);
@@ -73,14 +71,14 @@ trait Auto
         }
 
         // 数据自动验证
-        if (!$this->autoValidation($data, $type)) {
+        if (!$this->_autoValidation($data, $type)) {
             return false;
         }
 
         // 验证完成生成数据对象
-        if ($this->autoCheckFields && empty($this->options['link'])) {
+        if (empty($this->options['link'])) {
             // 开启字段检测并且没有关联表 则过滤非法字段数据
-            $fields = $this->getDbFields();
+            $fields = $this->getFields();
             foreach ($keys as $i => $key) {
                 if (!in_array($key, $fields)) {
                     unset($data[$key]);
@@ -89,7 +87,7 @@ trait Auto
         }
 
         // 创建完成对数据进行自动处理
-        $this->autoOperation($data, $type);
+        $this->_autoOperation($data, $type);
         // 验证后的回调方法
         $this->_after_create($data, $this->options);
         // 赋值当前数据对象
@@ -137,7 +135,7 @@ trait Auto
      * @param string $type 创建类型
      * @return mixed
      */
-    private function autoOperation(&$data, $type)
+    protected function _autoOperation(&$data, $type)
     {
         if (isset($this->options['auto'])) {
             if (false === $this->options['auto']) {
@@ -185,17 +183,20 @@ trait Auto
         } elseif (is_array($auto[2])) {
             $flags = 0;
             foreach ($auto[2] as $v) {
-                $flags = $flags | 1 << ($v - 1);
+                $flags |= 1 << ($v - 1);
             }
         } else {
             $flags = 3 == $auto[2] ? 3 : 1 << ($auto[2] - 1);
         }
         // 检查填充条件
         if ($flags & $type) {
+            if (empty($auto[3])) {
+                $auto[3] = 'string';
+            }
             switch (trim($auto[3])) {
-                case 'function':    //  使用函数进行填充 字段的值作为参数
-                case 'callback':    // 使用回调方法
-                    $args = isset($auto[4]) ? (array)$auto[4] : [];
+                case 'function': //  使用函数进行填充 字段的值作为参数
+                case 'callback': // 使用回调方法
+                    $args = isset($auto[4]) ? (array) $auto[4] : [];
                     if (is_string($auto[0]) && strpos($auto[0], ',')) {
                         $auto[0] = explode(',', $auto[0]);
                     }
@@ -211,19 +212,19 @@ trait Auto
                     if ('function' == $auto[3]) {
                         $data[$auto[0]] = call_user_func_array($auto[1], $args);
                     } else {
-                        $data[$auto[0]] = call_user_func_array([& $this, $auto[1]], $args);
+                        $data[$auto[0]] = call_user_func_array([ & $this, $auto[1]], $args);
                     }
                     break;
-                case 'field':   // 用其它字段的值进行填充
+                case 'field': // 用其它字段的值进行填充
                     $data[$auto[0]] = $data[$auto[1]];
                     break;
-                case 'ignore':  // 为空忽略
+                case 'ignore': // 为空忽略
                     if ($auto[1] === $data[$auto[0]]) {
                         unset($data[$auto[0]]);
                     }
                     break;
                 case 'string':
-                default:    // 默认作为字符串填充
+                default: // 默认作为字符串填充
                     $data[$auto[0]] = $auto[1];
             }
             if (isset($data[$auto[0]]) && false === $data[$auto[0]]) {
@@ -239,7 +240,7 @@ trait Auto
      * @param string $type 创建类型
      * @return boolean
      */
-    protected function autoValidation(&$data, $type)
+    protected function _autoValidation(&$data, $type)
     {
         if (isset($this->options['validate'])) {
             if (false === $this->options['validate']) {
@@ -305,7 +306,7 @@ trait Auto
         } elseif (is_array($val[5])) {
             $flags = 0;
             foreach ($val[5] as $v) {
-                $flags = $flags | 1 << ($v - 1);
+                $flags |= 1 << ($v - 1);
             }
         } else {
             $flags = 3 == $val[5] ? 3 : 1 << ($val[5] - 1);
@@ -318,18 +319,18 @@ trait Auto
             }
             $val[3] = isset($val[3]) ? $val[3] : self::EXISTS_VALIDATE;
             $val[4] = isset($val[4]) ? $val[4] : 'regex';
-            $status   = true;
+            $status = true;
             // 判断验证条件
             switch ($val[3]) {
-                case self::MUST_VALIDATE:   // 必须验证 不管表单是否有设置该字段
+                case self::MUST_VALIDATE: // 必须验证 不管表单是否有设置该字段
                     $status = $this->_validationFieldItem($data, $val);
                     break;
-                case self::VALUE_VALIDATE:    // 值不为空的时候才验证
+                case self::VALUE_VALIDATE: // 值不为空的时候才验证
                     if ('' != trim($data[$val[0]])) {
                         $status = $this->_validationFieldItem($data, $val);
                     }
                     break;
-                default:    // 默认表单存在该字段就验证
+                default: // 默认表单存在该字段就验证
                     if (isset($data[$val[0]])) {
                         $status = $this->_validationFieldItem($data, $val);
                     }
@@ -358,7 +359,7 @@ trait Auto
         switch (strtolower(trim($val[4]))) {
             case 'function': // 使用函数进行验证
             case 'callback': // 调用方法进行验证
-                $args = isset($val[6]) ? (array)$val[6] : [];
+                $args = isset($val[6]) ? (array) $val[6] : [];
                 if (is_string($val[0]) && strpos($val[0], ',')) {
                     $val[0] = explode(',', $val[0]);
                 }
@@ -371,7 +372,7 @@ trait Auto
                 } else {
                     array_unshift($args, isset($data[$val[0]]) ? $data[$val[0]] : null);
                 }
-                return call_user_func_array('function' == $val[4] ? $val[1] : [& $this, $val[1]], $args);
+                return call_user_func_array('function' == $val[4] ? $val[1] : [ & $this, $val[1]], $args);
             case 'confirm': // 验证两个字段是否相同
                 return $data[$val[0]] == $data[$val[1]];
             case 'unique': // 验证某个值是否唯一
@@ -469,9 +470,9 @@ trait Auto
      * 指定自动完成
      * @access public
      * @param array $auto 自动完成设置
-     * @return Model
+     * @return Auto
      */
-    public function auto($auto)
+    public function auto($auto = [], $rule = null)
     {
         $this->options['auto'] = $auto;
         return $this;
@@ -481,9 +482,9 @@ trait Auto
      * 指定自动验证
      * @access public
      * @param array $validate 自动验证设置
-     * @return Model
+     * @return Auto
      */
-    public function validate($validate)
+    public function validate($validate = [], $rule = null)
     {
         $this->options['validate'] = $validate;
         return $this;

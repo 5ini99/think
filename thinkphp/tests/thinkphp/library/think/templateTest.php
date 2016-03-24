@@ -11,7 +11,7 @@
 
 /**
  * 模板测试
- * @author    Haotong Lin <lofanmi@gmail.com>
+ * @author    oldrind
  */
 
 namespace tests\thinkphp\library\think;
@@ -25,14 +25,14 @@ class templateTest extends \PHPUnit_Framework_TestCase
         $template = new Template();
 
         $content = <<<EOF
-{\$name.a.b|default='test'}
+{\$name.a.b}
 EOF;
         $data = <<<EOF
-<?php echo (isset(\$name['a']['b']) && (\$name['a']['b'] !== '')?\$name['a']['b']:'test'); ?>
+<?php echo \$name['a']['b']; ?>
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {\$name.a??'test'}
@@ -42,7 +42,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {\$name.a?='test'}
@@ -52,7 +52,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {\$name.a?:'test'}
@@ -62,7 +62,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {\$name.a?\$name.b:'no'}
@@ -72,7 +72,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {\$name.a==\$name.b?='test'}
@@ -82,7 +82,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {\$name.a==\$name.b?'a':'b'}
@@ -92,7 +92,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {\$name.a|default='test'==\$name.b?'a':'b'}
@@ -102,7 +102,17 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
+
+        $content = <<<EOF
+{\$name.a|trim==\$name.b?='eq'}
+EOF;
+        $data = <<<EOF
+<?php if(trim(\$name['a'])==\$name['b']) echo 'eq'; ?>
+EOF;
+
+        $template->parse($content);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {:ltrim(rtrim(\$name.a))}
@@ -112,7 +122,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {~echo(trim(\$name.a))}
@@ -122,17 +132,17 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
-{+\$name.a}
+{++\$name.a}
 EOF;
         $data = <<<EOF
-<?php echo +\$name['a']; ?>
+<?php echo ++\$name['a']; ?>
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 {/*\$name*/}
@@ -140,8 +150,53 @@ EOF;
         $data = '';
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
+        $content = <<<EOF
+{\$0a}
+EOF;
+        $data = '{$0a}';
+
+        $template->parse($content);
+        $this->assertEquals($data, $content);
+
+    }
+
+    public function testVarFunction()
+    {
+        $template = new Template();
+
+        $content = <<<EOF
+{\$name.a.b|default='test'}
+EOF;
+        $data = <<<EOF
+<?php echo (isset(\$name['a']['b']) && (\$name['a']['b'] !== '')?\$name['a']['b']:'test'); ?>
+EOF;
+
+        $template->parse($content);
+        $this->assertEquals($data, $content);
+
+        $content = <<<EOF
+{\$create_time|date="y-m-d",###}
+EOF;
+        $data = <<<EOF
+<?php echo date("y-m-d",\$create_time); ?>
+EOF;
+
+        $template->parse($content);
+        $this->assertEquals($data, $content);
+
+        $content = <<<EOF
+{\$name}
+{\$name|trim|substr=0,3}
+EOF;
+        $data = <<<EOF
+<?php echo \$name; ?>
+<?php echo substr(trim(\$name),0,3); ?>
+EOF;
+
+        $template->parse($content);
+        $this->assertEquals($data, $content);
     }
 
     public function testVarIdentify()
@@ -159,7 +214,17 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
+
+        $content = <<<EOF
+<#\$info.a?='test'#>
+EOF;
+        $data = <<<EOF
+<?php if((is_array(\$info)?\$info['a']:\$info->a)) echo 'test'; ?>
+EOF;
+
+        $template->parse($content);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 <#\$info.a==\$info.b?='test'#>
@@ -169,7 +234,7 @@ EOF;
 EOF;
 
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
 
         $content = <<<EOF
 <#\$info.a|default='test'?'yes':'no'#>
@@ -177,88 +242,173 @@ EOF;
         $data = <<<EOF
 <?php echo ((is_array(\$info)?\$info['a']:\$info->a) !== ''?(is_array(\$info)?\$info['a']:\$info->a):'test')?'yes':'no'; ?>
 EOF;
-
         $template->parse($content);
-        $this->assertEquals($content, $data);
+        $this->assertEquals($data, $content);
+
+        $template2                   = new Template();
+        $template2->tpl_var_identify = 'obj';
+        $content                     = <<<EOF
+{\$info2.b|trim?'yes':'no'}
+EOF;
+        $data = <<<EOF
+<?php echo trim(\$info2->b)?'yes':'no'; ?>
+EOF;
+        $template2->parse($content);
+        $this->assertEquals($data, $content);
     }
 
-    public function testTag()
+    public function testThinkVar()
+    {
+        $config['tpl_begin'] = '{';
+        $config['tpl_end']   = '}';
+        $template            = new Template($config);
+
+        $_SERVER['SERVER_NAME'] = 'server_name';
+        $_GET['action']         = 'action';
+        $_POST['action']        = 'action';
+        $_COOKIE['name']        = 'name';
+        $_SESSION['action']     = ['name' => 'name'];
+        define('SITE_NAME', 'site_name');
+
+        $content = <<<EOF
+{\$Think.SERVER.SERVER_NAME}<br/>
+{\$Think.GET.action}<br/>
+{\$Think.POST.action}<br/>
+{\$Think.COOKIE.action}<br/>
+{\$Think.COOKIE.action.name}<br/>
+{\$Think.SESSION.action}<br/>
+{\$Think.SESSION.action.name}<br/>
+{\$Think.ENV.OS}<br/>
+{\$Think.REQUEST.action}<br/>
+{\$Think.CONST.SITE_NAME}<br/>
+{\$Think.LANG.action}<br/>
+{\$Think.CONFIG.action.name}<br/>
+{\$Think.NOW}<br/>
+{\$Think.VERSION}<br/>
+{\$Think.LDELIM}<br/>
+{\$Think.RDELIM}<br/>
+{\$Think.SITE_NAME}<br/>
+{\$Think.SITE.URL}
+EOF;
+        $data = <<<EOF
+<?php echo \$_SERVER['SERVER_NAME']; ?><br/>
+<?php echo \$_GET['action']; ?><br/>
+<?php echo \$_POST['action']; ?><br/>
+<?php echo \\think\\Cookie::get('action'); ?><br/>
+<?php echo \$_COOKIE['action']['name']; ?><br/>
+<?php echo \\think\\Session::get('action'); ?><br/>
+<?php echo \$_SESSION['action']['name']; ?><br/>
+<?php echo \$_ENV['OS']; ?><br/>
+<?php echo \$_REQUEST['action']; ?><br/>
+<?php echo SITE_NAME; ?><br/>
+<?php echo \\think\\Lang::get('action'); ?><br/>
+<?php echo \\think\\Config::get('action.name'); ?><br/>
+<?php echo date('Y-m-d g:i a',time()); ?><br/>
+<?php echo THINK_VERSION; ?><br/>
+<?php echo '{'; ?><br/>
+<?php echo '}'; ?><br/>
+<?php echo SITE_NAME; ?><br/>
+<?php echo ''; ?>
+EOF;
+        $template->parse($content);
+        $this->assertEquals($data, $content);
+    }
+
+    public function testDisplay()
     {
         $template = new Template();
+        $template->assign('name', 'name');
+        $config = [
+            'strip_space'  => true,
+            'view_path'    => dirname(__FILE__) . '/',
+            'cache_id'     => '__CACHE_ID__',
+            'display_cache'=> true
+        ];
+        $data = ['name' => 'value'];
+        $template->layout('layout')->display('display', $data, $config);
+        $this->expectOutputString('value');
+    }
+
+    public function testFetch()
+    {
+        $config['view_path']   = dirname(__FILE__) . '/';
+        $config['view_suffix'] = '.html';
+        $config['layout_on']   = true;
+        $config['layout_name'] = 'layout';
+        $template              = new Template($config);
+        $files                 = ['extend' => 'extend', 'include' => 'include'];
+        $template->assign('files', $files);
+        $template->assign('user', ['name' => 'name', 'account' => 100]);
+        $template->assign('message', 'message');
+        $template->assign('info', ['value' => 'value']);
 
         $content = <<<EOF
-{if \$var.a==\$var.b}
-one
-{elseif !empty(\$var.a) /}
-two
-{else /}
-default
-{/if}
+{extend name="\$files.extend" /}
+{block name="main"}
+main
+{block name="side"}
+{__BLOCK__}
+    {include file="\$files.include" name="\$user.name" value="\$user.account" /}
+    {\$message}{literal}{\$message}{/literal}
+{/block}
+{block name="mainbody"}
+    mainbody
+{/block}
+{/block}
 EOF;
-        $data = <<<EOF
-<?php if(\$var['a']==\$var['b']): ?>
-one
-<?php elseif(!empty(\$var['a'])): ?>
-two
-<?php else: ?>
-default
-<?php endif; ?>
+        $content2 = <<<EOF
+<nav>
+header
+<div id="wrap">
+    <input name="info" value="value">
+value:
+
+main
+
+
+    side
+
+    <input name="name" value="100">
+value:
+    message{\$message}
+
+
+    mainbody
+
+
+
+    {\$name}
+
+    php code</div>
+</nav>
 EOF;
-        $template->parse($content);
-        $this->assertEquals($content, $data);
+        $template->fetch($content);
+        $this->expectOutputString($content2);
+//        $template->parse($content);
+//        var_dump($content);
+    }
 
-        $content = <<<EOF
-{switch \$var}
-{case \$a /}
-a
-{/case}
-{case b}
-b
-{/case}
-{default /}
-default
-{/switch}
-EOF;
-        $data = <<<EOF
-<?php switch(\$var): ?>
-<?php case \$a: ?>
-a
-<?php break; ?>
-<?php case "b": ?>
-b
-<?php break; ?>
-<?php default: ?>
-default
-<?php endswitch; ?>
-EOF;
-        $template->parse($content);
-        $this->assertEquals($content, $data);
+    public function testVarAssign()
+    {
+        $template = new Template();
+        $template->assign('name', 'value');
+        $value = $template->get('name');
+        $this->assertEquals('value', $value);
+    }
 
-        $content = <<<EOF
-{foreach \$list as \$key=>\$val}
+    public function testVarGet()
+    {
+        $template = new Template();
+        $data     = ['a' => 'a', 'b' => 'b'];
+        $template->assign($data);
+        $this->assertEquals($data, $template->get());
+    }
 
-{/foreach}
-EOF;
-        $data = <<<EOF
-<?php foreach(\$list as \$key=>\$val): ?>
-
-<?php endforeach; ?>
-EOF;
-        $template->parse($content);
-        $this->assertEquals($content, $data);
-
-        $content = <<<EOF
-{foreach name="list" id="val" key="key"}
-
-{/foreach}
-EOF;
-        $data = <<<EOF
-<?php if(is_array(\$list)): foreach(\$list as \$key=>\$val): ?>
-
-<?php endforeach; endif; ?>
-EOF;
-        $template->parse($content);
-        $this->assertEquals($content, $data);
-
+    public function testIsCache()
+    {
+        $template = new Template(['cache_id' => '__CACHE_ID__','display_cache' => true]);
+        $this->assertTrue(!$template->isCache('__CACHE_ID__'));
+        $template->display_cache = false;
+        $this->assertTrue(!$template->isCache('__CACHE_ID__'));
     }
 }
